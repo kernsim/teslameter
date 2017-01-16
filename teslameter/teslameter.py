@@ -2,9 +2,9 @@
 """
 Teslameter
 
-Open Source Initiative OSI - The MIT License 
+Open Source Initiative OSI - The MIT License
 
-http://www.opensource.org/licenses/mit-license.php 
+http://www.opensource.org/licenses/mit-license.php
 
 Copyright 2017 Simon Kern
 
@@ -51,11 +51,12 @@ class App(tk.Frame):
         parent.wm_title(title)
         parent.wm_geometry("800x600")
         parent.iconbitmap(resource_path('Icons8-Windows-8-Science-Scale.ico'))
-        self.txt = tk.Label(self, text=' 79 mT',
-                            font=("Courier", 80))
+        self.txt = tk.Label(self, text='{0:7.2f} mT'.format(0),
+                            font=("Courier", 80),
+                            justify=tk.RIGHT)
         self.txt.pack(fill=tk.BOTH)
         self.txt_cnt = 0
-        
+
         self.canvas = tk.Canvas(self, background="black")
         self.canvas.bind("<Configure>", self.on_resize)
         self.gridpos = range(-80, 81, 20)
@@ -67,30 +68,48 @@ class App(tk.Frame):
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
         self.pack(fill=tk.BOTH, expand=1)
-
+        # statusbar
         self.statusbar = tk.Frame(self)
         tk.Label(self.statusbar, text='<Esc>: Quit', width=15).pack(
             side=tk.LEFT)
         tk.Label(self.statusbar, text='<Return>: Toggle Fullscreen', width=20).pack(
             side=tk.LEFT, fill=tk.BOTH)
+        tk.Label(self.statusbar, text='<F2>: Change Unit', width=20).pack(
+            side=tk.LEFT, fill=tk.BOTH)
         tk.Label(self.statusbar, text='<F1>: Info', width=15).pack(
-            side=tk.LEFT, fill=tk.X)
-        tk.Label(self.statusbar, text='Teslameter (c) 2017 Simon Kern', width=30).pack(
             side=tk.RIGHT, fill=tk.X)
+        # tk.Label(self.statusbar, text='Teslameter (c) 2017 Simon Kern', width=30).pack(
+        #    side=tk.RIGHT, fill=tk.X)
         self.statusbar.pack(fill=tk.BOTH)
 
         parent.bind('<Escape>', lambda e: parent.destroy())
         parent.bind('<Return>', lambda e: self.toggle_fullscreen())
+        parent.bind('<F2>', lambda e: self.change_unit())
         parent.bind('<F1>', lambda e: self.show_info())
-    
+
         self.fullscreen = False
-        
+        self._unit_idx = 0
+        #                fmt         scale, scale_for_grid
+        self.units = (('{0:7.2f} mT', 1.0, 1.0),
+                      ('{0:6.1f} G', 10., 1.0),
+                      ('{0:6.1f} A/cm', 7.9577, 10./7.9577),
+                     )
+
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen
         self.parent.attributes('-fullscreen', self.fullscreen)
-    
+
     def on_resize(self, event):
         self.replot()
+
+    def change_unit(self):
+        self._unit_idx += 1
+        if self._unit_idx >2:
+            self._unit_idx = 0
+
+    def format_(self, b):
+        fmt, scale = self.units[self._unit_idx][:2]
+        return fmt.format(b*scale)
 
     def read_serial(self):
         """
@@ -100,9 +119,12 @@ class App(tk.Frame):
         """
         while self.serialPort.inWaiting() != 0:
             line = self.serialPort.readline()
-            x = int(line.strip())
+            v = int(line.strip())
+            # Calculate flux density with 31.25 mV/mT
+            u = (5000./1023.) * v
+            b = (u-2500) / 31.25 # mV/(mV/mT)
             # Update the cached data lists with new sensor values.
-            self.Line1.append(float(x))
+            self.Line1.append(float(b))
             self.Line1 = self.Line1[-1 * self.npoints:]
             self.after_idle(self.replot)
         # Arduino sends all 50 ms
@@ -114,24 +136,27 @@ class App(tk.Frame):
         The lines are scaled to match the canvas size as the window may
         be resized by the user.
         """
+        scale_for_grid = self.units[self._unit_idx][2]
+
         self.txt_cnt += 1
         if self.txt_cnt>10:
             val = sum(self.Line1[-10:])/10.
-            self.txt.config(text= "%5.1f mT" % (val,))
+            self.txt.config(text= self.format_(val))
             self.txt_cnt = 0
         w = self.canvas.winfo_width()
         h = self.canvas.winfo_height()
-        max_all = 180.0
+        max_y = 180
         coordsX =  []
         for n in range(0, self.npoints):
             x = (w * n) / self.npoints
             coordsX.append(x)
-            coordsX.append(h - (h * (self.Line1[n]+max_all/2) / max_all))
+            coordsX.append(h - (h * (self.Line1[n]+max_y/2) / max_y))
         self.canvas.coords('X', *coordsX)
         #coordsX0 = [0, h/2., w, h/2.]
         #self.canvas.coords('X0', *coordsX0)
+
         for p, gt in zip(self.gridpos, self.gridtags):
-            y = h - (h * (p+max_all/2) / max_all)
+            y = h - h*(p*scale_for_grid + max_y/2)/max_y
             coords = [0, y, w, y]
             self.canvas.coords(gt, *coords)
 
@@ -139,14 +164,14 @@ class App(tk.Frame):
         tkMessageBox.showinfo('Teslameter',
 """Teslameter
 
-Open Source Initiative OSI - The MIT License 
-http://www.opensource.org/licenses/mit-license.php 
+Open Source Initiative OSI - The MIT License
+http://www.opensource.org/licenses/mit-license.php
 Copyright 2017 Simon Kern
 
 App-Icon from https://icons8.com/
 """)
 
-        
+
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     try:
@@ -157,7 +182,7 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
-    
+
 def main(args = None):
     if args is None:
         args = sys.argv
@@ -166,7 +191,7 @@ def main(args = None):
         port = args[1]
 #    if len(args) > 2:
 #        baudrate = int(args[2])
-    
+
     if port is None:
 #        ports = list(serial.tools.list_ports.comports())
         for p, label, dummy in serial.tools.list_ports.comports():
@@ -174,7 +199,7 @@ def main(args = None):
                 port = p
                 break
     root = tk.Tk()
- 
+
     if port is None:
         root.withdraw()
         tkMessageBox.showerror('Teslameter: Error',
@@ -183,10 +208,10 @@ def main(args = None):
                                +'or call with COM-port as command line arguement: '
                                +'"teslameter.exe COM4".')
         return 1
-        
+
     if port == 'demo':
         s = MockSerial()
-    else:        
+    else:
         try:
             s = serial.Serial(port, baudrate)
             s.flushInput()  # clear inputbuffer
@@ -195,8 +220,8 @@ def main(args = None):
             root.withdraw()
             tkMessageBox.showerror('Teslameter: Error', e)
             return 1
-            
-    app = App(root, "Teslameter", s)        
+
+    app = App(root, "Teslameter", s)
     app.read_serial()
     app.mainloop()
     return 0
@@ -204,17 +229,26 @@ def main(args = None):
 
 class MockSerial(object):
     def __init__(self):
-        self.phi = 0.
-        self.cnt = 0.
-        
+        self.val = 0
+        self.dir = 10
+        self.cnt = 0
+
     def readline(self):
-        self.phi += 0.05
-        return '{0:d}\n'.format(int(80.*math.sin(self.phi)))
-    
+        self.val += self.dir
+        if self.val <= 0:
+            self.val = 0
+            self.dir = -self.dir
+        if self.val >= 1023:
+            self.val = 1023
+            self.dir = -self.dir
+        #return '{0:d}'.format(511 if self.val > 512 else 512)
+        return '{0:d}'.format(self.val)
+#        return '{0:d}\n'.format(int(80.*math.sin(self.phi)))
+
     def inWaiting(self):
         self.cnt += 1
         return (self.cnt % 2) == 0
 #        return True
-        
+
 if __name__ == '__main__':
     main()

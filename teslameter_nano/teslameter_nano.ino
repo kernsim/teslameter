@@ -37,15 +37,16 @@ void setup() {
 
 void loop() {
    long raw;
-   long fd;
-   
-   raw = analogRead(7);  # Read value from A7
+   //long fd;
+
+   raw = analogRead(7);  // Read value from A7
    //fd = round((raw/1024.0*5-2.5)/0.03125);   // 31.25mV/mT
    //fd = (raw-512)/1024*5000*4/125;   // 31.25mV/mT
    //fd = (raw-512)*160/1024;   // 31.25mV/mT
-   fd = ((raw-512)*160)/1024;   // 31.25mV/mT // magnetic flux in mT
-   
-   Serial.println(fd); 
-   
-   delay(50);
+
+   //fd = ((raw-512)*160)/1024;   // 31.25mV/mT // magnetic flux in mT
+
+   Serial.println(raw);
+
+   delay(40);
 }
