@@ -29,10 +29,10 @@ SOFTWARE.
 
 import sys
 import os
-import Tkinter as tk
+import tkinter as tk
+from tkinter import messagebox
 import serial
 import serial.tools.list_ports
-import tkMessageBox
 import math
 
 class App(tk.Frame):
@@ -161,7 +161,7 @@ class App(tk.Frame):
             self.canvas.coords(gt, *coords)
 
     def show_info(self):
-        tkMessageBox.showinfo('Teslameter',
+        messagebox.showinfo('Teslameter',
 """Teslameter
 
 Open Source Initiative OSI - The MIT License
@@ -202,7 +202,7 @@ def main(args = None):
 
     if port is None:
         root.withdraw()
-        tkMessageBox.showerror('Teslameter: Error',
+        messagebox.showerror('Teslameter: Error',
                                'No COM-port with a label containing "CH340" '
                                +' found. Install CH341-driver or check USB connection. '
                                +'or call with COM-port as command line arguement: '
@@ -216,9 +216,9 @@ def main(args = None):
             s = serial.Serial(port, baudrate)
             s.flushInput()  # clear inputbuffer
             s.readline()  # Make sure that buffer starts after newline
-        except serial.SerialException, e:
+        except serial.SerialException as e:
             root.withdraw()
-            tkMessageBox.showerror('Teslameter: Error', e)
+            messagebox.showerror('Teslameter: Error', e)
             return 1
 
     app = App(root, "Teslameter", s)
